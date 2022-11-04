@@ -5,3 +5,4 @@ set(CMAKE_CXX_STANDARD 14)
 
 add_executable(algorithm_cpp main.cpp)
 add_subdirectory(sort)
+add_subdirectory(datastructure)
