@@ -12,4 +12,5 @@ set(CMAKE_CXX_FLAGS_RELEASE "-O0 -ggdb")
 
 add_executable("ringbuf" ringbuf_main.cc ringbuf.h)
 add_executable("vector" vector.cc)
+add_executable("skiplist" skiplist.cc)
 
