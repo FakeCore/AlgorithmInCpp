@@ -1,169 +1,202 @@
 //
-// Created by dylan liang on 2022/12/1.
+// Created by dylan liang on 2023/1/7.
 //
 
-#include <cstdint>
 #include <cstdlib>
 #include <vector>
 
 #define SKIPLIST_MAXLEVEL 32 /* Should be enough for 2^32 elements */
 #define SKIPLIST_P 0.25      /* Skiplist P = 1/4 */
-
-//copy code from redis 3.0.0
-//http://redis.io
-/**
- * <------ backward arrow
- * ------> forward arrow
- *
- * @TODO template<class T>
- */
-struct SkipListNode{
-    int32_t score;
-    SkipListNode *backward;
-    struct SkipListLevel{
-        SkipListNode *forward;
-        uint32_t span;
-    }level[];
+class SkipListNode;
+struct SkipListLevel{
+    SkipListNode *next;
+    int span;
 };
 
-struct SkipListInner{
+struct SkipListNode{
+    int score;
+    SkipListNode *back;
+    std::vector<SkipListLevel> level;
+};
+
+struct SkiplistInner{
     SkipListNode *head;
     SkipListNode *tail;
-    uint32_t length;
-    int32_t level;
-
+    int level; //max level in skiplist
+    int length;
 };
 
-class SkipList{
+
+class Skiplist {
 public:
-    SkipList(){
-        skipList = create();
+    SkiplistInner *skiplistInner;
+    Skiplist() {
+        skiplistInner = new SkiplistInner;
+        skiplistInner->head = createNode(SKIPLIST_MAXLEVEL,0);
+        for (int i = 0;i < SKIPLIST_MAXLEVEL;i++){
+            skiplistInner->head->level[i].next = nullptr;
+            skiplistInner->head->level[i].span = 0;
+        }
+        skiplistInner->head->back = nullptr;
+        skiplistInner->tail = nullptr;
+        skiplistInner->level = 1;
+        skiplistInner->length = 0;
     }
 
-    ~SkipList(){
-        free(skipList);
-    }
-
-    void insert(int32_t score){
-        std::vector<SkipListNode*> update(SKIPLIST_MAXLEVEL);
-        SkipListInner *sl = skipList;
+    bool search(int target) {
+        SkiplistInner *sl = skiplistInner;
         SkipListNode *x = sl->head;
-        unsigned int rank[SKIPLIST_MAXLEVEL] = {0};
-        for(int i = sl->level - 1; i >= 0; i--){
-//            if(i == sl->level - 1){
-//                rank[i] = 0;
-//            }else{
-            rank[i] = rank[i+1];
-//            }
-            while (x->level[i].forward && x->level[i].forward->score < score) {
-                rank[i] += x->level[i].span;
-                x = x->level[i].forward;
+        //保存小于num的最大节点
+        SkipListNode *update[SKIPLIST_MAXLEVEL];
+        for(int32_t i = sl->level -1;i >= 0;i--){
+            while (x->level[i].next && x->level[i].next->score < target){
+                //rank
+                x = x->level[i].next;
             }
             update[i] = x;
         }
+        return x->level[0].next && x->level[0].next->score == target;
+
+    }
+
+    void add(int num) {
+        SkiplistInner *sl = skiplistInner;
+        SkipListNode *x = sl->head;
+        //保存小于num的最大节点
+        SkipListNode *update[SKIPLIST_MAXLEVEL];
+        uint32_t rank[SKIPLIST_MAXLEVEL];
+        rank[SKIPLIST_MAXLEVEL-1] = 0;
+        //find appropriate place to insert this
+        //level  num
+        //4      1 -->start place
+        //3      1     3
+        //2      1     3
+        //1      1     3    4
+        //每一层都要去找
+        for(int32_t i = sl->level -1;i >= 0;i--){
+//            rank[i] = i == (sl->level-1) ? 0 : rank[i+1];
+            rank[i] = rank[i+1];
+            while (x->level[i].next && x->level[i].next->score < num){
+                //rank
+                rank[i] += x->level[i].span;
+                x = x->level[i].next;
+            }
+            update[i] = x;
+        }
+
         int32_t level = randomLevel();
-        if (level > sl->level) {
-            for (int32_t i = sl->level; i < level; i++) {
+        //if the new level bigger than current's
+        if (level > sl->level){
+            for(int i = sl->level; i < level;i++){
                 rank[i] = 0;
                 update[i] = sl->head;
+                //@TODO
                 update[i]->level[i].span = sl->length;
             }
             sl->level = level;
         }
-
-        x = createNode(level,score);
-        for (int32_t i = 0; i < level; i++) {
-            x->level[i].forward = update[i]->level[i].forward;
-            update[i]->level[i].forward = x;
-
-            /* update span covered by update[i] as x is inserted here */
-            x->level[i].span = update[i]->level[i].span - (rank[0] - rank[i]);
+        x = createNode(level,num);
+        for(int i = 0;i < level;i++){
+            x->level[i].next = update[i]->level[i].next;
+            update[i]->level[i].next = x;
+            x->level[i].span = update[i]->level[i].span - (rank[0]-rank[i]);
             update[i]->level[i].span = (rank[0] - rank[i]) + 1;
         }
-
-        /* increment span for untouched levels */
-        for (int32_t i = level; i < sl->level; i++) {
+        for(int i = level;i < sl->level;i++){
             update[i]->level[i].span++;
         }
-
-        x->backward = (update[0] == sl->head) ? NULL : update[0];
-        if (x->level[0].forward)
-            x->level[0].forward->backward = x;
+        x->back = (update[0] == sl->head) ? NULL : update[0];
+        if (x->level[0].next)
+            x->level[0].next->back = x;
         else
             sl->tail = x;
         sl->length++;
     }
 
-    void remove(int32_t score){
-        SkipListNode *update[SKIPLIST_MAXLEVEL], *x;
-        SkipListInner *sl = skipList;
-        x = sl->head;
-        for (int32_t i = sl->level-1; i >= 0; i--) {
-            while (x->level[i].forward && x->level[i].forward->score < score){
-                x = x->level[i].forward;
-            }
-            update[i] = x;
-        }
-        /* We may have multiple elements with the same score, what we need
-         * is to find the element with both the right score and object. */
-        x = x->level[0].forward;
-        if (x ) {
-            removeNode(x, update);
-            freeNode(x);
-        }
-    }
-
-private:
-    SkipListInner *create(){
-        SkipListInner *sl = static_cast<SkipListInner *>(malloc(sizeof(SkipListInner)));
-        sl->length = 0;
-        sl->level = 1;
-        sl->head = createNode(SKIPLIST_MAXLEVEL,0);
-        for(int i = 0;i < SKIPLIST_MAXLEVEL;i++){
-            sl->head->level[i].forward = nullptr;
-            sl->head->level[i].span = 0;
-        }
-        sl->head->backward = nullptr;
-        sl->tail = nullptr;
-        return sl;
-    }
     SkipListNode *createNode(int32_t level,double score){
-        SkipListNode *sln = static_cast<SkipListNode*>(malloc(sizeof(SkipListNode) + level * sizeof(SkipListNode::SkipListLevel)));
+        SkipListNode *sln = new SkipListNode;
+        sln->level = std::vector<SkipListLevel>(level);
         sln->score = score;
         return sln;
     }
+
+    bool erase(int num) {
+        if(!search(num)){
+            return false;
+        }
+        SkipListNode *update[SKIPLIST_MAXLEVEL];
+        SkiplistInner *sl = skiplistInner;
+        SkipListNode *x = skiplistInner->head;
+        for(int i = sl->level-1;i>=0;i--){
+            while (x->level[i].next && x->level[i].next->score < num){
+                x = x->level[i].next;
+            }
+            update[i] = x;
+        }
+//        SkipListNode *next;
+        x = x->level[0].next;
+//        do{
+//            next = x->level[0].next;
+        if (x && num == x->score) {
+            removeNode(x, update);
+            freeNode(x);
+//            }else{
+//                break;
+        }
+//            x = next;
+//        } while (next);
+        return true;
+    }
+
     void freeNode(SkipListNode *sln){
-        free(sln);
+        delete sln;
     }
     void removeNode(SkipListNode *x, SkipListNode **update) {
-        SkipListInner *sl = skipList;
+        SkiplistInner *sl = skiplistInner;
         int i;
         for (i = 0; i < sl->level; i++) {
-            if (update[i]->level[i].forward == x) {
+            if (update[i]->level[i].next == x) {
                 update[i]->level[i].span += x->level[i].span - 1;
-                update[i]->level[i].forward = x->level[i].forward;
+                update[i]->level[i].next = x->level[i].next;
             } else {
                 update[i]->level[i].span -= 1;
             }
         }
-        if (x->level[0].forward) {
-            x->level[0].forward->backward = x->backward;
+        if (x->level[0].next) {
+            x->level[0].next->back = x->back;
         } else {
-            sl->tail = x->backward;
+            sl->tail = x->back;
         }
-        while(sl->level > 1 && sl->head->level[sl->level-1].forward == NULL)
+        while(sl->level > 1 && sl->head->level[sl->level-1].next == NULL)
             sl->level--;
         sl->length--;
     }
 
-    int randomLevel() {
+    int32_t randomLevel(){
         int level = 1;
         while ((random()&0xFFFF) < (SKIPLIST_P * 0xFFFF))
             level += 1;
         return (level<SKIPLIST_MAXLEVEL) ? level : SKIPLIST_MAXLEVEL;
     }
 
-private:
-    SkipListInner *skipList;
+    int size(){
+        return skiplistInner->length;
+    }
+
 };
 
+int main(){
+    Skiplist skiplist;
+
+    skiplist.add(1);
+    skiplist.add(2);
+    skiplist.add(3);
+    assert(skiplist.search(0)==false);
+    skiplist.add(4);
+    assert(skiplist.search(1)==true);
+    skiplist.erase(0);
+    skiplist.erase(1);
+    assert(skiplist.search(1)==false);
+
+    return 0;
+}

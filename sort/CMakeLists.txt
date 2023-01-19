@@ -12,4 +12,5 @@ set(CMAKE_CXX_FLAGS_RELEASE "-O0 -ggdb")
 
 
 add_executable("sort_a" main.cpp sortalgorithm.h)
+add_executable("heap_sort.cc" heap_sort.cc)
 

@@ -292,14 +292,15 @@ public:
         for (int i = 0; i < s; i++) {
             v.push_back(rand() % 10000);
         }
-        std::vector<std::vector<int>> vs = { {323,1,41,4,13,41,23,3,5,2,41,4,234,1,42,5,1,2,1},{},{1},{83,42} };
-        vs.push_back({ 10,1,2,3,4,5,6 });
+        std::vector<std::vector<int>> vs ;
+//        = { {323,1,41,4,13,41,23,3,5,2,41,4,234,1,42,5,1,2,1},{},{1},{83,42} };
+//        vs.push_back({ 10,1,2,3,4,5,6 });
         vs.push_back(v);
-        v.resize(1000000);
-        vs.push_back(v);
+//        v.resize(1000000);
+//        vs.push_back(v);
     
         printf("quciksort\n");
-        for (auto& s : vs) {
+        for (auto s : vs) {
             clock_t start = clock();
             quicksort(s,0,s.size()-1);
             clock_t end = clock();
@@ -315,7 +316,7 @@ public:
         //    printf("pass size:%d  time:%f\n",s.size(),(float)(end-start)/CLOCKS_PER_SEC/1.0);
         //}
         printf("mergesort\n");
-        for (auto& s : vs) {
+        for (auto s : vs) {
             clock_t start = clock();
             mergeSort(s.data(),s.size());
             clock_t end = clock();
@@ -323,7 +324,7 @@ public:
             printf("pass size:%d  time:%f\n",s.size(),(float)(end-start)/CLOCKS_PER_SEC/1.0);
         }
         printf("bucketsort\n");
-        for (auto& s : vs) {
+        for (auto s : vs) {
             int min = 0;
             int max = 0;
             if (!s.empty()) {
@@ -337,7 +338,7 @@ public:
             printf("pass size:%d  time:%f\n",s.size(),(float)(end-start)/CLOCKS_PER_SEC/1.0);
         }
         printf("heapsort\n");
-        for (auto& s : vs) {
+        for (auto s : vs) {
             clock_t start = clock();
             heapSort(s);
             clock_t end = clock();
@@ -345,7 +346,7 @@ public:
             printf("pass size:%d  time:%f\n",s.size(),(float)(end-start)/CLOCKS_PER_SEC/1.0);
         }
         printf("shellsort\n");
-        for (auto& s : vs) {
+        for (auto s : vs) {
             clock_t start = clock();
             shellSort(s);
             clock_t end = clock();
@@ -353,7 +354,7 @@ public:
             printf("pass size:%d  time:%f\n",s.size(),(float)(end-start)/CLOCKS_PER_SEC/1.0);
         }
         printf("countsort\n");
-        for (auto& s : vs) {
+        for (auto s : vs) {
             clock_t start = clock();
             countSort(s);
             clock_t end = clock();
@@ -361,7 +362,7 @@ public:
             printf("pass size:%d  time:%f\n",s.size(),(float)(end-start)/CLOCKS_PER_SEC/1.0);
         }
         printf("radixsort\n");
-        for (auto& s : vs) {
+        for (auto s : vs) {
             clock_t start = clock();
             radixSort(s);
             clock_t end = clock();
